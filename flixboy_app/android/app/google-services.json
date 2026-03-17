@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "930972772538",
+    "project_id": "flixboy-76357",
+    "storage_bucket": "flixboy-76357.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:930972772538:android:ba0e987f5f6c235d2ffa83",
+        "android_client_info": {
+          "package_name": "com.example.flixboy_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2JYm46x3PHy6IhyU6K1iWO-e8775LSsM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
