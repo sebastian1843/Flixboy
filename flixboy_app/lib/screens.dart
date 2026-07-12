@@ -1,18 +1,10 @@
 // lib/screens.dart
-// ============================================================
-//  PANTALLAS NUEVAS:
-//  - SeriesScreen    → todas las series agrupadas por género
-//  - MoviesScreen    → todas las películas agrupadas por género
-//  - CalendarScreen  → próximos estrenos ordenados por año
-//
-//  IMPORTANTE: agrega este import en main.dart:
-//  import 'screens.dart';
-// ============================================================
-
 import 'package:flutter/material.dart';
 import 'firebase_service.dart';
 import 'main.dart';
 import 'preview_card.dart';
+import 'video_player_screen.dart';
+import 'app_transitions.dart';
 
 // ============================================================
 //  SERIES SCREEN
@@ -37,7 +29,7 @@ class _SeriesScreenState extends State<SeriesScreen> {
   Future<void> _loadSeries() async {
     final all = await ContentService.getAllContent();
     setState(() {
-      _series = all.where((c) => c.type == 'Serie').toList();
+      _series = all.where((c) => c.isSerie && !c.isUpcoming).toList();
       _loading = false;
     });
   }
@@ -125,7 +117,8 @@ class _SeriesScreenState extends State<SeriesScreen> {
         );
 
   Widget _contentCard(ContentModel c) => GestureDetector(
-    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => DetailScreen(content: c))),
+    onTap: () => Navigator.push(context, MaterialPageRoute(
+        builder: (_) => EpisodesScreen(series: c))),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Expanded(child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
@@ -184,7 +177,7 @@ class _MoviesScreenState extends State<MoviesScreen> {
   Future<void> _loadMovies() async {
     final all = await ContentService.getAllContent();
     setState(() {
-      _movies = all.where((c) => c.type == 'Pelicula').toList();
+      _movies = all.where((c) => c.isPelicula && !c.isUpcoming).toList();
       _loading = false;
     });
   }
@@ -301,12 +294,12 @@ class _MoviesScreenState extends State<MoviesScreen> {
     const SizedBox(height: 16),
     const Text('No hay películas disponibles', style: TextStyle(color: Colors.grey, fontSize: 16)),
     const SizedBox(height: 8),
-    const Text('Agrega películas en Firestore con type="Pelicula"', style: TextStyle(color: Colors.grey, fontSize: 12), textAlign: TextAlign.center),
+    const Text('Agrega películas en Firestore con type="Película"', style: TextStyle(color: Colors.grey, fontSize: 12), textAlign: TextAlign.center),
   ]));
 }
 
 // ============================================================
-//  CALENDAR SCREEN — Próximos estrenos
+//  CALENDAR SCREEN
 // ============================================================
 
 class CalendarScreen extends StatefulWidget {
@@ -326,14 +319,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _loadUpcoming() async {
     final all = await ContentService.getAllContent();
-    // Incluye contenido con isUpcoming=true O genre='Proximo estreno'
     final upcoming = all.where((c) => c.isUpcoming || c.genre == 'Proximo estreno').toList();
-    // Ordena por año
     upcoming.sort((a, b) => a.year.compareTo(b.year));
     setState(() { _upcoming = upcoming; _loading = false; });
   }
 
-  // Agrupa por año
   Map<String, List<ContentModel>> get _groupedByYear {
     final map = <String, List<ContentModel>>{};
     for (final c in _upcoming) {
@@ -369,7 +359,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildList() {
     final grouped = _groupedByYear;
     final years = grouped.keys.toList()..sort();
-
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: years.length,
@@ -377,7 +366,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final year = years[i];
         final items = grouped[year]!;
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // ── Separador de año ──
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
             child: Row(children: [
@@ -390,7 +378,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: Text('${items.length} títulos', style: const TextStyle(color: Color(0xFFE50914), fontSize: 11))),
             ]),
           ),
-          // ── Cards del año ──
           ...items.map((c) => _calendarCard(c)).toList(),
         ]);
       },
@@ -403,7 +390,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(color: const Color(0xFF1A1A1A), borderRadius: BorderRadius.circular(12)),
       child: Row(children: [
-        // Póster
         ClipRRect(
           borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
           child: SizedBox(width: 80, height: 110,
@@ -414,15 +400,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        // Info
         Expanded(child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Badge tipo
             Row(children: [
               Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: genreColor(c.genre), borderRadius: BorderRadius.circular(4)),
-                child: Text(c.type == 'Serie' ? 'SERIE' : 'PELÍCULA', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5))),
+                child: Text(c.isSerie ? 'SERIE' : 'PELÍCULA', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5))),
               const SizedBox(width: 6),
               Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(color: const Color(0xFFE50914).withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
@@ -441,7 +425,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
               Text(c.description, style: const TextStyle(color: Colors.grey, fontSize: 11, height: 1.4), maxLines: 2, overflow: TextOverflow.ellipsis),
           ]),
         )),
-        // Año
         Padding(
           padding: const EdgeInsets.only(right: 12),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -458,7 +441,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     color: const Color(0xFF111111),
     child: Stack(fit: StackFit.expand, children: [
       Container(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [genreColor(c.genre).withOpacity(0.5), const Color(0xFF111111)]))),
-      Center(child: Icon(c.type == 'Serie' ? Icons.tv_rounded : Icons.movie_rounded, size: 28, color: Colors.white.withOpacity(0.2))),
+      Center(child: Icon(c.isSerie ? Icons.tv_rounded : Icons.movie_rounded, size: 28, color: Colors.white.withOpacity(0.2))),
     ]),
   );
 
@@ -467,6 +450,142 @@ class _CalendarScreenState extends State<CalendarScreen> {
     const SizedBox(height: 16),
     const Text('No hay próximos estrenos', style: TextStyle(color: Colors.grey, fontSize: 16)),
     const SizedBox(height: 8),
-    const Text('Agrega contenido con isUpcoming="true"\no genre="Proximo estreno"', style: TextStyle(color: Colors.grey, fontSize: 12), textAlign: TextAlign.center),
+    const Text('Agrega contenido con isUpcoming=true', style: TextStyle(color: Colors.grey, fontSize: 12), textAlign: TextAlign.center),
   ]));
+}
+
+// ============================================================
+//  EPISODES SCREEN
+// ============================================================
+
+class EpisodesScreen extends StatefulWidget {
+  final ContentModel series;
+  const EpisodesScreen({super.key, required this.series});
+  @override State<EpisodesScreen> createState() => _EpisodesScreenState();
+}
+
+class _EpisodesScreenState extends State<EpisodesScreen> {
+  List<ContentModel> _episodes = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEpisodes();
+  }
+
+  Future<void> _loadEpisodes() async {
+    final eps = await ContentService.getEpisodes(widget.series.id);
+    setState(() { _episodes = eps; _loading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A0A),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 220,
+            pinned: true,
+            backgroundColor: const Color(0xFF0A0A0A),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(children: [
+                Positioned.fill(
+                  child: widget.series.imagenUrl.isNotEmpty
+                      ? Image.network(widget.series.imagenUrl, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1A0A0A)))
+                      : Container(color: const Color(0xFF1A0A0A)),
+                ),
+                Positioned.fill(child: Container(
+                  decoration: const BoxDecoration(gradient: LinearGradient(
+                    begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Color(0xFF0A0A0A)],
+                    stops: [0.4, 1.0],
+                  )),
+                )),
+                Positioned(bottom: 16, left: 16, right: 16,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(widget.series.title,
+                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: genreColor(widget.series.genre), borderRadius: BorderRadius.circular(4)),
+                        child: Text(widget.series.genre, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
+                      const SizedBox(width: 8),
+                      Text(widget.series.year, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                      const SizedBox(width: 8),
+                      Text(widget.series.duration, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    ]),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+          SliverToBoxAdapter(child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(children: [
+              const Text('Temporada 2', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Text('${_episodes.length} episodios', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            ]),
+          )),
+          if (_loading)
+            const SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: Color(0xFFE50914))))
+          else if (_episodes.isEmpty)
+            const SliverFillRemaining(child: Center(child: Text('No hay episodios', style: TextStyle(color: Colors.grey))))
+          else
+            SliverList(delegate: SliverChildBuilderDelegate(
+              (_, i) => _episodeCard(_episodes[i], i + 1),
+              childCount: _episodes.length,
+            )),
+        ],
+      ),
+    );
+  }
+
+  Widget _episodeCard(ContentModel ep, int index) => GestureDetector(
+    onTap: () => Navigator.push(context, AppRoute.playerFade(
+      VideoPlayerScreen(
+        videoUrl: ep.videoUrl,
+        title: ep.title,
+        content: ep.copyWith(seriesId: widget.series.id),
+        seasonNum: 2,
+        episodeNum: index,
+        episodeTitle: ep.title,
+      ),
+    )),
+    child: Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(children: [
+        Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE50914).withOpacity(0.15),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0xFFE50914).withOpacity(0.4)),
+          ),
+          child: Center(child: Text('$index',
+            style: const TextStyle(color: Color(0xFFE50914), fontWeight: FontWeight.bold, fontSize: 16))),
+        ),
+        const SizedBox(width: 14),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(ep.title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(ep.duration, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ])),
+        const Icon(Icons.play_circle_outline, color: Colors.white70, size: 32),
+      ]),
+    ),
+  );
 }

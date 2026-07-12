@@ -1,7 +1,8 @@
 // lib/preview_card.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'firebase_service.dart';
 import 'main.dart';
 
@@ -25,7 +26,8 @@ class PreviewCard extends StatefulWidget {
 
 class _PreviewCardState extends State<PreviewCard>
     with SingleTickerProviderStateMixin {
-  VideoPlayerController? _controller;
+  Player? _player;
+  VideoController? _controller;
   bool _isPlaying   = false;
   bool _isBuffering = false;
 
@@ -47,12 +49,12 @@ class _PreviewCardState extends State<PreviewCard>
   @override
   void dispose() {
     _pressTimer?.cancel();
-    _controller?.dispose();
+    _player?.dispose();
     _fadeCtrl.dispose();
     super.dispose();
   }
 
-  // ── Usa Listener de bajo nivel para no competir con el scroll ──
+  // ── Listener de bajo nivel para no competir con el scroll ──
   void _onPointerDown(PointerDownEvent e) {
     if (widget.content.trailerUrl.isEmpty) return;
     _pressing = true;
@@ -64,7 +66,7 @@ class _PreviewCardState extends State<PreviewCard>
   void _onPointerUp(PointerUpEvent e) {
     _pressing = false;
     _pressTimer?.cancel();
-    if (!_isPlaying) return; // si no empezó, no hacemos nada
+    if (!_isPlaying) return;
     _stopPreview();
   }
 
@@ -79,17 +81,19 @@ class _PreviewCardState extends State<PreviewCard>
     setState(() => _isBuffering = true);
 
     try {
-      _controller = VideoPlayerController.networkUrl(
-          Uri.parse(widget.content.trailerUrl));
-      await _controller!.initialize();
-      if (!mounted) { _controller?.dispose(); return; }
-      await _controller!.setVolume(0);
-      await _controller!.setLooping(true);
-      await _controller!.play();
-      if (mounted) {
-        setState(() { _isPlaying = true; _isBuffering = false; });
-        _fadeCtrl.forward();
+      _player = Player();
+      _controller = VideoController(_player!);
+
+      await _player!.open(Media(widget.content.trailerUrl));
+      await _player!.setVolume(0);   // silencioso — solo preview visual
+
+      if (!mounted) {
+        _player?.dispose();
+        return;
       }
+
+      setState(() { _isPlaying = true; _isBuffering = false; });
+      _fadeCtrl.forward();
     } catch (e) {
       if (mounted) setState(() => _isBuffering = false);
     }
@@ -98,8 +102,8 @@ class _PreviewCardState extends State<PreviewCard>
   void _stopPreview() {
     if (!_isPlaying && !_isBuffering) return;
     _fadeCtrl.reverse().then((_) {
-      _controller?.pause();
-      _controller?.dispose();
+      _player?.dispose();
+      _player = null;
       _controller = null;
       if (mounted) setState(() { _isPlaying = false; _isBuffering = false; });
     });
@@ -138,31 +142,28 @@ class _PreviewCardState extends State<PreviewCard>
               if (_isPlaying && _controller != null)
                 FadeTransition(
                   opacity: _fadeAnim,
-                  child: SizedBox.expand(
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width:  _controller!.value.size.width,
-                        height: _controller!.value.size.height,
-                        child:  VideoPlayer(_controller!),
-                      ),
-                    ),
+                  child: Video(
+                    controller: _controller!,
+                    fit: BoxFit.cover,
+                    controls: NoVideoControls, // sin controles en preview
                   ),
                 ),
 
               // ── Buffering ──
               if (_isBuffering)
-                Container(color: Colors.black54,
-                  child: const Center(child: SizedBox(width: 20, height: 20,
-                    child: CircularProgressIndicator(
-                        color: Color(0xFFE50914), strokeWidth: 2)))),
+                Container(
+                  color: Colors.black54,
+                  child: const Center(
+                    child: SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(
+                          color: Color(0xFFE50914), strokeWidth: 2)))),
 
-              // ── Icono play (indica que tiene trailer) ──
-              if (!_isPlaying && !_isBuffering &&
-                  c.trailerUrl.isNotEmpty)
+              // ── Ícono play (indica que tiene trailer) ──
+              if (!_isPlaying && !_isBuffering && c.trailerUrl.isNotEmpty)
                 Positioned(bottom: 6, right: 6,
                   child: Container(width: 22, height: 22,
-                    decoration: BoxDecoration(color: Colors.black54,
+                    decoration: BoxDecoration(
+                        color: Colors.black54,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white38, width: 1)),
                     child: const Icon(Icons.play_arrow,
@@ -171,8 +172,7 @@ class _PreviewCardState extends State<PreviewCard>
               // ── Badge S/P ──
               Positioned(top: 5, left: 5,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 4, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.7),
                       borderRadius: BorderRadius.circular(3)),
@@ -184,8 +184,7 @@ class _PreviewCardState extends State<PreviewCard>
               if (c.isPremium)
                 Positioned(top: 5, right: 5,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 4, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     decoration: BoxDecoration(
                         color: const Color(0xFFF57C00),
                         borderRadius: BorderRadius.circular(3)),

@@ -11,6 +11,7 @@
 //   • Nonce único por request (anti-replay)
 //   • Validación de respuestas
 
+import 'firebase_service.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -514,6 +515,44 @@ class ApiService {
       return {'message': 'Error al restablecer contraseña', 'data': null};
     } catch (_) {
       return {'message': 'Error de conexión', 'data': null};
+    }
+  }
+
+  // ── EPISODIOS DE SERIE ────────────────────────────────────
+  //
+  // Retorna la lista de episodios de una serie dado su contentId.
+  // El endpoint esperado es: GET /content/:id/episodes
+  // Ajusta la ruta si tu backend usa una URL diferente.
+
+  static Future<List<ContentModel>> getEpisodes(String contentId) async {
+    try {
+      final headers = await _secureHeaders();
+
+      final response = await http
+          .get(
+            Uri.parse('${_Config.baseUrl}/content/$contentId/episodes'),
+            headers: headers,
+          )
+          .timeout(_Config.timeout);
+
+      if (response.statusCode == 401) {
+        await clearToken();
+        return [];
+      }
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final list = (data['data'] as List<dynamic>?) ?? [];
+        return list
+            .map((e) => ContentModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+
+      return [];
+    } on SocketException {
+      return [];
+    } catch (_) {
+      return [];
     }
   }
 }
