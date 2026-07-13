@@ -11,6 +11,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'firebase_service.dart';
 import 'main.dart';
+import 'content_screens.dart';
 import 'preview_card.dart';
 
 class BrowseScreen extends StatefulWidget {

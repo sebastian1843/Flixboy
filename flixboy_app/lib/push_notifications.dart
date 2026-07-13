@@ -14,7 +14,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'firebase_service.dart';
-import 'main.dart'; // DetailScreen
+import 'content_screens.dart'; // DetailScreen
 
 // ── Handler global para mensajes en background ─────────────────
 // IMPORTANTE: debe ser función top-level (fuera de cualquier clase)

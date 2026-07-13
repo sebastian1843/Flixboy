@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import 'firebase_service.dart';
 import 'main.dart';
-import 'preview_card.dart';
 import 'video_player_screen.dart';
 import 'app_transitions.dart';
+import 'content_screens.dart';
 
 // ============================================================
 //  SERIES SCREEN

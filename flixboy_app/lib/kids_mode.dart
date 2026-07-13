@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'firebase_service.dart';
 import 'profile_manager.dart';
 import 'main.dart'; // cloudinaryOptimized, genreColor
+import 'content_screens.dart'; // DetailScreen
 
 // ══════════════════════════════════════════════════════════════
 //  PANTALLA PRINCIPAL MODO NIÑOS
